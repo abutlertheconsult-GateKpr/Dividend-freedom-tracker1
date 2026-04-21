@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dividend Freedom Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --teal: #00B386;
+  --teal-light: #E6F9F4;
+  --teal-mid: #CCF2E8;
+  --teal-dark: #007A5E;
+  --bg: #F2F4F7;
+  --surface: #FFFFFF;
+  --surface2: #F8F9FB;
+  --border: #E8EAED;
+  --text: #0F1923;
+  --text2: #5A6473;
+  --text3: #9AA3AE;
+  --red: #F03E3E;
+  --red-light: #FFF0F0;
+  --amber: #F59F00;
+  --amber-light: #FFF8E6;
+  --blue: #3B82F6;
+  --blue-light: #EFF6FF;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.06);
+  --radius: 14px;
+  --radius-sm: 9px;
+  --radius-xs: 6px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; }
+
+/* ── SIDEBAR ────────────────────────────────── */
+.sidebar {
+  width: 240px; min-height: 100vh;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  position: fixed; top: 0; left: 0; z-index: 100;
+  box-shadow: var(--shadow-sm);
+}
+.brand {
+  padding: 1.5rem 1.25rem 1.2rem;
+  display: flex; align-items: center; gap: 11px;
+  border-bottom: 1px solid var(--border);
+}
+.brand-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: var(--teal); display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0;
+}
+.brand-icon svg { width: 20px; height: 20px; fill: #fff; }
+.brand-text-name { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.2; }
+.brand-text-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+
+.nav { padding: 0.75rem 0.75rem; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0.6rem 0.85rem; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 500; color: var(--text2);
+  cursor: pointer; transition: all 0.15s;
+}
+.nav-item:hover { background: var(--bg); color: var(--text); }
+.nav-item.active { background: var(--teal-light); color: var(--teal-dark); }
+.nav-item.active .nav-icon { color: var(--teal); }
+.nav-icon { font-size: 16px; width: 20px; text-align: center; color: var(--text3); transition: color 0.15s; }
+.nav-item:hover .nav-icon { color: var(--text2); }
+
+.sidebar-bottom {
+  padding: 1rem 1.25rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+.freedom-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.freedom-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.freedom-pct-big { font-size: 24px; font-weight: 700; color: var(--teal); }
+.freedom-pct-sub { font-size: 11px; color: var(--text3); }
+.mini-track { height: 6px; background: var(--teal-mid); border-radius: 99px; overflow: hidden; }
+.mini-fill { height: 100%; background: var(--teal); border-radius: 99px; transition: width 0.6s cubic-bezier(.4,0,.2,1); }
+
+/* ── MAIN ────────────────────────────────────── */
+.main { margin-left: 240px; flex: 1; padding: 2rem; }
+.page { display: none; max-width: 1020px; }
+.page.active { display: block; }
+
+/* ── PAGE HEADER ── */
+.page-header { margin-bottom: 1.75rem; display: flex; justify-content: space-between; align-items: flex-end; }
+.page-title { font-size: 22px; font-weight: 700; color: var(--text); }
+.page-subtitle { font-size: 13px; color: var(--text3); margin-top: 2px; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+  padding: 1.25rem;
+}
+.card-lg { padding: 1.5rem; }
+
+/* ── KPI CARDS ── */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; margin-bottom: 1.25rem; }
+.kpi-card {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+  padding: 1.1rem 1.2rem;
+}
+.kpi-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.kpi-value { font-size: 22px; font-weight: 700; color: var(--text); }
+.kpi-value.green { color: var(--teal); }
+.kpi-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.kpi-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 99px; margin-top: 4px; }
+.kpi-badge.up { background: var(--teal-light); color: var(--teal-dark); }
+.kpi-badge.down { background: var(--red-light); color: var(--red); }
+
+/* ── FREEDOM METER ── */
+.freedom-meter-card {
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px solid var(--border); box-shadow: var(--shadow);
+  padding: 1.5rem; margin-bottom: 1.25rem; overflow: hidden;
+  position: relative;
+}
+.fm-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; }
+.fm-left {}
+.fm-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.fm-pct { font-size: 52px; font-weight: 800; color: var(--teal); line-height: 1; }
+.fm-pct span { font-size: 26px; font-weight: 700; }
+.fm-tagline { font-size: 13px; color: var(--text2); margin-top: 5px; }
+.fm-right { text-align: right; }
+.fm-income-amt { font-size: 22px; font-weight: 700; color: var(--text); }
+.fm-income-sub { font-size: 12px; color: var(--text3); margin-top: 3px; }
+.fm-badge { display: inline-block; margin-top: 8px; padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+.fm-badge.on { background: var(--teal-light); color: var(--teal-dark); }
+.fm-badge.off { background: var(--red-light); color: var(--red); }
+.fm-bar-wrap { margin-bottom: 6px; }
+.fm-bar-track { height: 10px; background: var(--teal-mid); border-radius: 99px; overflow: hidden; }
+.fm-bar-fill { height: 100%; background: linear-gradient(90deg, var(--teal-dark), var(--teal)); border-radius: 99px; transition: width 0.8s cubic-bezier(.4,0,.2,1); }
+.fm-bar-labels { display: flex; justify-content: space-between; margin-top: 5px; font-size: 11px; color: var(--text3); }
+
+/* ── SECTION HEADER ── */
+.section-title { font-size: 12px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.85rem; }
+
+/* ── HOLDINGS TABLE ── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 0.55rem 0.85rem; font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 0.75rem 0.85rem; border-bottom: 1px solid var(--border); color: var(--text2); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--bg); }
+.ticker-chip { display: inline-block; background: var(--teal-light); color: var(--teal-dark); font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: var(--radius-xs); letter-spacing: 0.02em; }
+.yield-chip { display: inline-block; background: var(--bg); color: var(--text2); font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 99px; border: 1px solid var(--border); }
+.freq-chip { font-size: 11px; color: var(--text3); }
+.div-amount { font-weight: 600; color: var(--teal-dark); }
+.totals-row td { background: var(--surface2); font-weight: 600; color: var(--text); border-top: 1px solid var(--border); border-bottom: none; }
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0.5rem 1rem; border-radius: var(--radius-sm); cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+  border: none; transition: all 0.15s; white-space: nowrap;
+}
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover { background: var(--teal-dark); }
+.btn-ghost { background: transparent; color: var(--text2); border: 1.5px solid var(--border); }
+.btn-ghost:hover { border-color: var(--teal); color: var(--teal); }
+.btn-danger-sm { background: transparent; color: var(--red); border: 1px solid #fecaca; font-size: 11px; padding: 3px 8px; border-radius: var(--radius-xs); cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 600; transition: all 0.15s; }
+.btn-danger-sm:hover { background: var(--red-light); }
+.btn-sm { padding: 0.35rem 0.75rem; font-size: 12px; }
+
+/* ── MODAL ── */
+.overlay { display: none; position: fixed; inset: 0; background: rgba(15,25,35,0.45); z-index: 300; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+.overlay.open { display: flex; }
+.modal { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 1.75rem; width: 500px; max-width: 95vw; max-height: 92vh; overflow-y: auto; border: 1px solid var(--border); }
+.modal-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 1.25rem; }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+
+/* ── FORMS ── */
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-group { margin-bottom: 0; }
+.form-label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 5px; }
+.form-input, .form-select {
+  width: 100%; padding: 0.55rem 0.8rem;
+  background: var(--bg); border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500;
+  outline: none; transition: border-color 0.15s;
+}
+.form-input:focus, .form-select:focus { border-color: var(--teal); background: #fff; }
+.form-select option { background: #fff; }
+
+/* ── RANGE ── */
+input[type=range] {
+  flex: 1; -webkit-appearance: none; height: 5px;
+  background: var(--teal-mid); border-radius: 99px; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--teal); cursor: pointer; border: 2.5px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+
+/* ── CALENDAR ── */
+.cal-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 14px; }
+.cal-card {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.85rem 0.75rem;
+  cursor: pointer; transition: all 0.15s; text-align: center;
+}
+.cal-card:hover { border-color: var(--teal); box-shadow: var(--shadow-sm); }
+.cal-card.current { border-color: var(--teal); background: var(--teal-light); }
+.cal-card.selected { border-color: var(--teal-dark); box-shadow: 0 0 0 3px var(--teal-mid); }
+.cal-month-name { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 5px; }
+.cal-card.current .cal-month-name { color: var(--teal-dark); }
+.cal-amount { font-size: 14px; font-weight: 700; color: var(--text); }
+.cal-card.current .cal-amount { color: var(--teal-dark); }
+.cal-tickers { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; }
+.cal-ticker-dot { font-size: 9px; background: var(--teal-mid); color: var(--teal-dark); border-radius: 3px; padding: 1px 4px; font-weight: 600; }
+.cal-detail-panel { background: var(--surface); border: 1.5px solid var(--teal-mid); border-radius: var(--radius); padding: 1.25rem; display: none; }
+.cal-detail-panel.open { display: block; }
+.cal-detail-row { display: flex; justify-content: space-between; align-items: center; padding: 0.55rem 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.cal-detail-row:last-child { border-bottom: none; }
+
+/* ── EXPENSES ── */
+.exp-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.exp-row { display: flex; align-items: center; gap: 10px; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+.exp-row:last-child { border-bottom: none; }
+.exp-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.exp-name { flex: 1; font-size: 13px; color: var(--text2); font-weight: 500; }
+.exp-input { width: 110px; padding: 0.35rem 0.6rem; background: var(--bg); border: 1.5px solid var(--border); border-radius: var(--radius-xs); font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; color: var(--text); outline: none; text-align: right; transition: border-color 0.15s; }
+.exp-input:focus { border-color: var(--teal); background: #fff; }
+.exp-total-row { display: flex; justify-content: space-between; align-items: center; padding-top: 0.85rem; border-top: 1.5px solid var(--border); margin-top: 0.5rem; }
+.exp-total-label { font-size: 13px; font-weight: 600; color: var(--text2); }
+.exp-total-val { font-size: 22px; font-weight: 700; color: var(--teal); }
+
+/* ── PATH PAGE ── */
+.path-inputs-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 1.5rem; margin-bottom: 1.25rem; }
+.slider-row { display: flex; align-items: center; gap: 12px; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
+.slider-row:last-child { border-bottom: none; }
+.slider-label { font-size: 13px; color: var(--text2); font-weight: 500; width: 200px; flex-shrink: 0; }
+.slider-val { font-size: 13px; font-weight: 700; color: var(--teal); min-width: 62px; text-align: right; }
+
+.required-num { font-size: 40px; font-weight: 800; line-height: 1.1; }
+.required-num.good { color: var(--teal); }
+.required-num.bad { color: var(--red); }
+
+.countdown-row { display: flex; gap: 14px; margin-top: 12px; }
+.cd-unit { text-align: center; }
+.cd-num { font-size: 30px; font-weight: 700; color: var(--text); }
+.cd-lbl { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
+
+.action-card { background: var(--teal-light); border: 1.5px solid var(--teal-mid); border-radius: var(--radius); padding: 1.25rem; }
+.action-row { display: flex; justify-content: space-between; align-items: center; padding: 0.45rem 0; border-bottom: 1px solid var(--teal-mid); font-size: 13px; }
+.action-row:last-child { border-bottom: none; }
+.action-label { color: var(--teal-dark); font-weight: 500; }
+.action-value { font-weight: 700; color: var(--text); }
+.on-track-yes { color: var(--teal-dark); font-weight: 700; }
+.on-track-no { color: var(--red); font-weight: 700; }
+
+.status-tag { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+.status-green { background: var(--teal-light); color: var(--teal-dark); }
+.status-red { background: var(--red-light); color: var(--red); }
+.status-amber { background: var(--amber-light); color: var(--amber); }
+
+/* ── GRID HELPERS ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.grid-auto { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; }
+.mb { margin-bottom: 1.25rem; }
+.chart-wrap { position: relative; height: 240px; }
+.chart-wrap-lg { position: relative; height: 300px; }
+.section-gap { margin-bottom: 1.5rem; }
+.import-row { display: flex; gap: 8px; margin-top: 12px; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--teal-mid); border-radius: 99px; }
+
+/* ── MOBILE ── */
+@media (max-width: 800px) {
+  .sidebar { width: 100%; min-height: auto; position: relative; }
+  .main { margin-left: 0; padding: 1rem; }
+  .grid-2, .exp-layout, .form-grid-2 { grid-template-columns: 1fr; }
+  .cal-grid { grid-template-columns: repeat(3, 1fr); }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="brand">
+    <div class="brand-icon">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.93V18h-2v-1.07A5.004 5.004 0 017 12h2c0 1.65 1.35 3 3 3s3-1.35 3-3c0-1.37-.92-2.56-2.26-2.88L10 8.67C7.63 8.07 6 5.9 6 4h2c0 1.1.9 2 2 2 1.03 0 1.9-.78 1.99-1.79L12 4c.55 0 1 .45 1 1v1.07A5.004 5.004 0 0117 11h-2c0-1.65-1.35-3-3-3-.48 0-.93.12-1.32.33l2.29.56C15.28 9.44 17 11.32 17 13.5c0 2.03-1.47 3.72-3.43 4.27L13 17c-.55 0-1-.45-1-1v-.07z"/></svg>
+    </div>
+    <div>
+      <div class="brand-text-name">Dividend Freedom</div>
+      <div class="brand-text-sub">Tracker</div>
+    </div>
+  </div>
+
+  <div class="nav">
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <span class="nav-icon">⊞</span> Dashboard
+    </div>
+    <div class="nav-item" onclick="showPage('holdings')">
+      <span class="nav-icon">◧</span> Holdings
+    </div>
+    <div class="nav-item" onclick="showPage('calendar')">
+      <span class="nav-icon">📅</span> Div Calendar
+    </div>
+    <div class="nav-item" onclick="showPage('expenses')">
+      <span class="nav-icon">◎</span> Expenses
+    </div>
+    <div class="nav-item" onclick="showPage('path')">
+      <span class="nav-icon">▶</span> My Path
+    </div>
+    <div class="nav-item" onclick="showPage('simulator')">
+      <span class="nav-icon">⟳</span> Simulator
+    </div>
+  </div>
+
+  <div class="sidebar-bottom">
+    <div class="freedom-label">Freedom Progress</div>
+    <div class="freedom-row">
+      <div class="freedom-pct-big" id="sb-pct">0%</div>
+      <div class="freedom-pct-sub" id="sb-sub">$0 / $0</div>
+    </div>
+    <div class="mini-track">
+      <div class="mini-fill" id="sb-bar" style="width:0%"></div>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+
+  <!-- ── DASHBOARD ─────────────────────────────── -->
+  <div class="page active" id="page-dashboard">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Dashboard</div>
+        <div class="page-subtitle">Your path to financial freedom</div>
+      </div>
+    </div>
+
+    <!-- Freedom Meter -->
+    <div class="freedom-meter-card mb">
+      <div class="fm-top">
+        <div class="fm-left">
+          <div class="fm-label">Freedom Meter</div>
+          <div class="fm-pct" id="d-pct">0<span>%</span></div>
+          <div class="fm-tagline" id="d-tagline">You are 0% financially free</div>
+        </div>
+        <div class="fm-right">
+          <div class="fm-income-amt" id="d-monthly">$0 <span style="font-size:14px;color:var(--text3)">/ mo</span></div>
+          <div class="fm-income-sub">of <span id="d-goal">$0</span> monthly goal</div>
+          <div id="d-fm-badge"></div>
+        </div>
+      </div>
+      <div class="fm-bar-wrap">
+        <div class="fm-bar-track"><div class="fm-bar-fill" id="d-bar" style="width:0%"></div></div>
+      </div>
+      <div class="fm-bar-labels">
+        <span>$0</span>
+        <span id="d-bar-goal">Goal: $0 / mo</span>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid mb">
+      <div class="kpi-card"><div class="kpi-label">Annual Dividends</div><div class="kpi-value green" id="kpi-annual">$0</div></div>
+      <div class="kpi-card"><div class="kpi-label">Portfolio Value</div><div class="kpi-value" id="kpi-port">$0</div></div>
+      <div class="kpi-card"><div class="kpi-label">Avg Yield</div><div class="kpi-value" id="kpi-yield">0.0%</div></div>
+      <div class="kpi-card"><div class="kpi-label">Monthly Income</div><div class="kpi-value green" id="kpi-monthly">$0</div></div>
+      <div class="kpi-card"><div class="kpi-label">Capital Gap</div><div class="kpi-value" id="kpi-gap">$0</div></div>
+    </div>
+
+    <!-- Holdings chart -->
+    <div class="card mb">
+      <div class="section-title">Holdings — Dividend Contribution</div>
+      <div class="chart-wrap"><canvas id="c-holdings"></canvas></div>
+    </div>
+
+    <!-- Mini calendar -->
+    <div class="card">
+      <div class="section-title">12-Month Dividend Calendar</div>
+      <div class="cal-grid" id="d-cal"></div>
+    </div>
+  </div>
+
+  <!-- ── HOLDINGS ───────────────────────────────── -->
+  <div class="page" id="page-holdings">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Holdings</div>
+        <div class="page-subtitle">Track your dividend positions</div>
+      </div>
+      <button class="btn btn-primary" onclick="openModal()">+ Add Position</button>
+    </div>
+    <div class="card mb">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Ticker</th><th>Company</th><th>Shares</th>
+              <th>Price</th><th>Ann. Div/Sh</th><th>Frequency</th>
+              <th>Monthly Div</th><th>Yield</th><th>Ex-Div</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="h-tbody"></tbody>
+          <tfoot><tr class="totals-row" id="h-totals"></tr></tfoot>
+        </table>
+      </div>
+    </div>
+    <div class="import-row">
+      <button class="btn btn-ghost btn-sm" onclick="exportData()">↓ Export JSON</button>
+      <label class="btn btn-ghost btn-sm" style="cursor:pointer">↑ Import JSON<input type="file" accept=".json" style="display:none" onchange="importData(event)"></label>
+    </div>
+  </div>
+
+  <!-- ── CALENDAR ───────────────────────────────── -->
+  <div class="page" id="page-calendar">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Dividend Calendar</div>
+        <div class="page-subtitle">Projected income by month — click a month for details</div>
+      </div>
+    </div>
+    <div class="card mb">
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="cal-detail-panel" id="cal-detail">
+        <div class="section-title" id="cal-detail-title"></div>
+        <div id="cal-detail-rows"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── EXPENSES ───────────────────────────────── -->
+  <div class="page" id="page-expenses">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Monthly Expenses</div>
+        <div class="page-subtitle">Set your freedom target number</div>
+      </div>
+    </div>
+    <div class="exp-layout">
+      <div class="card">
+        <div class="section-title">Expense Categories</div>
+        <div id="exp-rows"></div>
+        <div class="exp-total-row">
+          <div class="exp-total-label">Total Monthly Expenses</div>
+          <div class="exp-total-val" id="exp-total">$0</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title">Breakdown</div>
+        <div class="chart-wrap"><canvas id="c-exp"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MY PATH ────────────────────────────────── -->
+  <div class="page" id="page-path">
+    <div class="page-header">
+      <div>
+        <div class="page-title">My Path to Freedom</div>
+        <div class="page-subtitle">Your personal escape plan calculator</div>
+      </div>
+    </div>
+
+    <!-- Inputs -->
+    <div class="path-inputs-card mb">
+      <div class="section-title">Your Numbers</div>
+      <div class="form-grid-2" style="margin-bottom:1rem">
+        <div class="form-group">
+          <label class="form-label">Weekly Take-Home Income ($)</label>
+          <input class="form-input" type="number" id="p-income" value="1000" oninput="calcPath()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Freedom Number ($/mo target)</label>
+          <input class="form-input" type="number" id="p-freedom" value="4000" oninput="calcPath()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Target Freedom Date</label>
+          <input class="form-input" type="month" id="p-date" oninput="calcPath()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Expected Portfolio Yield (%)</label>
+          <input class="form-input" type="number" id="p-yield" value="4" step="0.1" oninput="calcPath()">
+        </div>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Dividend growth rate / yr</span>
+        <input type="range" id="p-growth" min="0" max="15" step="0.5" value="5" oninput="calcPath()">
+        <span class="slider-val" id="p-growth-v">5.0%</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">% of weekly surplus to invest</span>
+        <input type="range" id="p-invest" min="10" max="100" step="5" value="80" oninput="calcPath()">
+        <span class="slider-val" id="p-invest-v">80%</span>
+      </div>
+    </div>
+
+    <!-- Results row 1 -->
+    <div class="grid-2 mb">
+      <div class="card">
+        <div class="section-title">Weekly Income Breakdown</div>
+        <div id="p-income-breakdown"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Capital Needed</div>
+        <div id="p-capital-breakdown"></div>
+      </div>
+    </div>
+
+    <!-- Results row 2 -->
+    <div class="grid-2 mb">
+      <div class="card">
+        <div class="section-title">Required Weekly Investment</div>
+        <div class="required-num good" id="p-required">$0/wk</div>
+        <div id="p-required-tag" style="margin-top:8px"></div>
+        <div class="section-title" style="margin-top:1.25rem">Freedom Countdown</div>
+        <div class="countdown-row" id="p-countdown">
+          <div class="cd-unit"><div class="cd-num" id="cd-y">--</div><div class="cd-lbl">Years</div></div>
+          <div class="cd-unit"><div class="cd-num" id="cd-m">--</div><div class="cd-lbl">Months</div></div>
+          <div class="cd-unit"><div class="cd-num" id="cd-d">--</div><div class="cd-lbl">Days</div></div>
+        </div>
+      </div>
+      <div class="action-card">
+        <div class="section-title" style="color:var(--teal-dark)">Weekly Action Card</div>
+        <div id="p-action-card"></div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="card">
+      <div class="section-title">Growth Projection — Portfolio Value & Dividend Income</div>
+      <div class="chart-wrap-lg"><canvas id="c-path"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ── SIMULATOR ──────────────────────────────── -->
+  <div class="page" id="page-simulator">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Reinvestment Simulator</div>
+        <div class="page-subtitle">What-if compound growth calculator</div>
+      </div>
+    </div>
+
+    <div class="card mb">
+      <div class="section-title">Adjust Parameters</div>
+      <div class="slider-row">
+        <span class="slider-label">Monthly contribution ($)</span>
+        <input type="range" id="s-contrib" min="100" max="5000" step="50" value="500" oninput="calcSim()">
+        <span class="slider-val" id="s-contrib-v">$500</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Starting portfolio ($)</span>
+        <input type="range" id="s-start" min="0" max="500000" step="1000" value="10000" oninput="calcSim()">
+        <span class="slider-val" id="s-start-v">$10,000</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Average dividend yield (%)</span>
+        <input type="range" id="s-yield" min="1" max="15" step="0.5" value="4" oninput="calcSim()">
+        <span class="slider-val" id="s-yield-v">4.0%</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Annual dividend growth (%)</span>
+        <input type="range" id="s-growth" min="0" max="15" step="0.5" value="5" oninput="calcSim()">
+        <span class="slider-val" id="s-growth-v">5.0%</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Time horizon (years)</span>
+        <input type="range" id="s-years" min="1" max="40" step="1" value="20" oninput="calcSim()">
+        <span class="slider-val" id="s-years-v">20 yrs</span>
+      </div>
+    </div>
+
+    <div class="kpi-grid mb">
+      <div class="kpi-card"><div class="kpi-label">End Portfolio Value</div><div class="kpi-value green" id="s-end-val">$0</div></div>
+      <div class="kpi-card"><div class="kpi-label">Monthly Divs (end)</div><div class="kpi-value green" id="s-end-div">$0</div></div>
+      <div class="kpi-card"><div class="kpi-label">Total Divs Received</div><div class="kpi-value" id="s-total-div">$0</div></div>
+      <div class="kpi-card"><div class="kpi-label">Total Contributions</div><div class="kpi-value" id="s-total-contrib">$0</div></div>
+      <div class="kpi-card"><div class="kpi-label">Freedom Year</div><div class="kpi-value green" id="s-free-yr">—</div></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Portfolio Growth Over Time</div>
+      <div class="chart-wrap-lg"><canvas id="c-sim"></canvas></div>
+    </div>
+  </div>
+</main>
+
+<!-- ADD/EDIT MODAL -->
+<div class="overlay" id="h-modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-ttl">Add Position</div>
+    <div class="form-grid-2" style="gap:12px">
+      <div class="form-group"><label class="form-label">Ticker Symbol</label><input class="form-input" id="h-ticker" placeholder="e.g. SCHD" style="text-transform:uppercase"></div>
+      <div class="form-group"><label class="form-label">Company Name</label><input class="form-input" id="h-company" placeholder="e.g. Schwab US Dividend ETF"></div>
+      <div class="form-group"><label class="form-label">Shares Owned</label><input class="form-input" type="number" id="h-shares" placeholder="100" step="0.01"></div>
+      <div class="form-group"><label class="form-label">Price Per Share ($)</label><input class="form-input" type="number" id="h-price" placeholder="80.00" step="0.01"></div>
+      <div class="form-group"><label class="form-label">Annual Dividend / Share ($)</label><input class="form-input" type="number" id="h-div" placeholder="3.00" step="0.01"></div>
+      <div class="form-group"><label class="form-label">Payment Frequency</label>
+        <select class="form-select" id="h-freq"><option value="monthly">Monthly</option><option value="quarterly" selected>Quarterly</option><option value="annual">Annual</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Next Ex-Dividend Date</label><input class="form-input" type="date" id="h-exdate"></div>
+      <div class="form-group"><label class="form-label">Pay Months (quarterly, e.g. 1,4,7,10)</label><input class="form-input" id="h-months" placeholder="1,4,7,10"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveHolding()">Save Position</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATA STORE ────────────────────────────────────
+let D = { holdings: [], expenses: { Housing:1500, Food:600, Transport:300, Utilities:200, Insurance:150, Entertainment:150, Other:100 }, path: { income:1000, freedom:4000, yield:4, growth:5, investPct:80, date:'' } };
+function save() { localStorage.setItem('dft2', JSON.stringify(D)); }
+function load() { const d = localStorage.getItem('dft2'); if(d) D = JSON.parse(d); }
+load();
+
+// ── HELPERS ──────────────────────────────────────
+const f0 = n => '$' + Math.round(n).toLocaleString();
+const f2 = n => '$' + (+n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fp = n => (+n).toFixed(1)+'%';
+
+function totalExp() { return Object.values(D.expenses).reduce((a,b)=>a+Number(b),0); }
+function mDiv(h) { return (Number(h.annualDiv)*Number(h.shares))/12; }
+function totalMDiv() { return D.holdings.reduce((a,h)=>a+mDiv(h),0); }
+function portVal() { return D.holdings.reduce((a,h)=>a+Number(h.price)*Number(h.shares),0); }
+function blendYield() { const pv=portVal(); if(!pv) return 0; return D.holdings.reduce((a,h)=>a+Number(h.annualDiv)*Number(h.shares),0)/pv*100; }
+function freePct() { const e=totalExp(); return e?Math.min(totalMDiv()/e*100,100):0; }
+
+function payMonths(h) {
+  if(h.freq==='monthly') return [0,1,2,3,4,5,6,7,8,9,10,11];
+  if(h.freq==='annual') { const m=h.exdate?new Date(h.exdate).getMonth():0; return [m]; }
+  if(h.months) return h.months.split(',').map(x=>(parseInt(x.trim())-1+12)%12);
+  const m=h.exdate?new Date(h.exdate).getMonth():0;
+  return [m,(m+3)%12,(m+6)%12,(m+9)%12];
+}
+function divForMonth(h,m) {
+  const ms=payMonths(h); if(!ms.includes(m)) return 0;
+  const tot=Number(h.annualDiv)*Number(h.shares);
+  return h.freq==='monthly'?tot/12:h.freq==='quarterly'?tot/4:tot;
+}
+
+// ── NAVIGATION ───────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{ if(n.getAttribute('onclick')?.includes("'"+id+"'")) n.classList.add('active'); });
+  if(id==='dashboard') renderDashboard();
+  if(id==='holdings') renderHoldings();
+  if(id==='calendar') renderCalendar();
+  if(id==='expenses') renderExpenses();
+  if(id==='path') { initPath(); calcPath(); }
+  if(id==='simulator') calcSim();
+  updateSidebar();
+}
+function updateSidebar() {
+  const p=freePct(), md=totalMDiv(), exp=totalExp();
+  document.getElementById('sb-pct').textContent=Math.round(p)+'%';
+  document.getElementById('sb-sub').textContent=f0(md)+' / '+f0(exp);
+  document.getElementById('sb-bar').style.width=p+'%';
+}
+
+// ── CHART HELPERS ────────────────────────────────
+let charts={};
+function kc(id) { if(charts[id]){charts[id].destroy();delete charts[id];} }
+const ticks = { color:'#9AA3AE', font:{family:'Inter',size:10} };
+const gridLine = { color:'rgba(0,0,0,0.05)' };
+
+// ── DASHBOARD ────────────────────────────────────
+function renderDashboard() {
+  const md=totalMDiv(), exp=totalExp(), p=freePct();
+  const pv=portVal(), annual=md*12, yld=blendYield();
+  const yp=(D.path.yield||4)/100, capNeeded=exp?(exp*12)/yp:0, gap=Math.max(0,capNeeded-pv);
+
+  document.getElementById('d-pct').innerHTML=Math.round(p)+'<span>%</span>';
+  document.getElementById('d-tagline').textContent='You are '+Math.round(p)+'% financially free';
+  document.getElementById('d-monthly').innerHTML=f0(md)+' <span style="font-size:14px;color:var(--text3)">/ mo</span>';
+  document.getElementById('d-goal').textContent=f0(exp);
+  document.getElementById('d-bar').style.width=p+'%';
+  document.getElementById('d-bar-goal').textContent='Goal: '+f0(exp)+' / mo';
+
+  const badge=document.getElementById('d-fm-badge');
+  badge.innerHTML=p>=100?'<span class="fm-badge on">You Are Free!</span>':p>=75?'<span class="fm-badge on">Almost There</span>':'<span class="fm-badge off">Gap: '+f0(exp-md)+' / mo</span>';
+
+  document.getElementById('kpi-annual').textContent=f0(annual);
+  document.getElementById('kpi-port').textContent=f0(pv);
+  document.getElementById('kpi-yield').textContent=fp(yld);
+  document.getElementById('kpi-monthly').textContent=f0(md);
+  document.getElementById('kpi-gap').textContent=f0(gap);
+
+  kc('holdings');
+  const sorted=[...D.holdings].sort((a,b)=>mDiv(b)-mDiv(a));
+  if(sorted.length) {
+    charts.holdings=new Chart(document.getElementById('c-holdings'),{
+      type:'bar',
+      data:{ labels:sorted.map(h=>h.ticker), datasets:[{label:'Monthly Dividend ($)',data:sorted.map(h=>+mDiv(h).toFixed(2)),backgroundColor:'rgba(0,179,134,0.18)',borderColor:'#00B386',borderWidth:2,borderRadius:6}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks,grid:gridLine},y:{ticks:{...ticks,callback:v=>'$'+v.toLocaleString()},grid:gridLine}}}
+    });
+  }
+
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const now=new Date().getMonth();
+  const cal=document.getElementById('d-cal'); cal.innerHTML='';
+  months.forEach((mn,i)=>{
+    const tot=D.holdings.reduce((a,h)=>a+divForMonth(h,i),0);
+    const el=document.createElement('div');
+    el.className='cal-card'+(i===now?' current':'');
+    const payers=D.holdings.filter(h=>divForMonth(h,i)>0);
+    el.innerHTML=`<div class="cal-month-name">${mn}</div><div class="cal-amount">${f0(tot)}</div><div class="cal-tickers">${payers.slice(0,3).map(h=>`<span class="cal-ticker-dot">${h.ticker}</span>`).join('')}</div>`;
+    cal.appendChild(el);
+  });
+}
+
+// ── HOLDINGS ─────────────────────────────────────
+let editIdx=-1;
+function renderHoldings() {
+  const tbody=document.getElementById('h-tbody'); tbody.innerHTML='';
+  if(!D.holdings.length) { tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:2rem;font-size:13px">No positions yet — add your first holding above</td></tr>'; }
+  D.holdings.forEach((h,i)=>{
+    const md=mDiv(h), yc=(Number(h.annualDiv)/Number(h.price)*100)||0;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><span class="ticker-chip">${h.ticker}</span></td><td style="color:var(--text);font-weight:500">${h.company||'—'}</td><td>${Number(h.shares).toLocaleString()}</td><td>${f2(h.price)}</td><td>${f2(h.annualDiv)}</td><td><span class="freq-chip">${h.freq}</span></td><td class="div-amount">${f2(md)}</td><td><span class="yield-chip">${fp(yc)}</span></td><td style="font-size:11px;color:var(--text3)">${h.exdate||'—'}</td><td style="display:flex;gap:6px;align-items:center"><button class="btn btn-ghost btn-sm" onclick="editHolding(${i})">Edit</button><button class="btn-danger-sm" onclick="delHolding(${i})">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+  const pv=portVal(), tmd=totalMDiv(), by=blendYield();
+  document.getElementById('h-totals').innerHTML=`<td colspan="2" style="color:var(--text3)">Totals</td><td></td><td style="font-weight:700">${f0(pv)}</td><td></td><td></td><td class="div-amount">${f2(tmd)}/mo</td><td><span class="yield-chip">${fp(by)}</span></td><td></td><td></td>`;
+}
+function openModal(idx) {
+  editIdx=idx!==undefined?idx:-1;
+  document.getElementById('modal-ttl').textContent=editIdx>=0?'Edit Position':'Add Position';
+  const h=editIdx>=0?D.holdings[editIdx]:{};
+  ['ticker','company','shares','price','div','freq','exdate','months'].forEach(k=>{ const el=document.getElementById('h-'+k); if(el){el.value=h[k==='div'?'annualDiv':k]||'';} });
+  document.getElementById('h-freq').value=h.freq||'quarterly';
+  document.getElementById('h-modal').classList.add('open');
+}
+function closeModal() { document.getElementById('h-modal').classList.remove('open'); }
+function editHolding(i) { openModal(i); }
+function delHolding(i) { if(confirm('Delete '+D.holdings[i].ticker+'?')){D.holdings.splice(i,1);save();renderHoldings();updateSidebar();} }
+function saveHolding() {
+  const h={ticker:document.getElementById('h-ticker').value.toUpperCase().trim(),company:document.getElementById('h-company').value.trim(),shares:parseFloat(document.getElementById('h-shares').value)||0,price:parseFloat(document.getElementById('h-price').value)||0,annualDiv:parseFloat(document.getElementById('h-div').value)||0,freq:document.getElementById('h-freq').value,exdate:document.getElementById('h-exdate').value,months:document.getElementById('h-months').value.trim()};
+  if(!h.ticker) return alert('Ticker required');
+  if(editIdx>=0) D.holdings[editIdx]=h; else D.holdings.push(h);
+  save(); closeModal(); renderHoldings(); updateSidebar();
+}
+
+// ── CALENDAR ─────────────────────────────────────
+let selMonth=-1;
+function renderCalendar() {
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const now=new Date().getMonth();
+  const grid=document.getElementById('cal-grid'); grid.innerHTML='';
+  months.forEach((mn,i)=>{
+    const tot=D.holdings.reduce((a,h)=>a+divForMonth(h,i),0);
+    const payers=D.holdings.filter(h=>divForMonth(h,i)>0);
+    const el=document.createElement('div');
+    el.className='cal-card'+(i===now?' current':'')+(i===selMonth?' selected':'');
+    el.innerHTML=`<div class="cal-month-name">${mn.slice(0,3)}</div><div class="cal-amount">${f0(tot)}</div><div class="cal-tickers">${payers.slice(0,3).map(h=>`<span class="cal-ticker-dot">${h.ticker}</span>`).join('')}</div>`;
+    el.onclick=()=>showCalDetail(i,mn,payers);
+    grid.appendChild(el);
+  });
+}
+function showCalDetail(i,mn,payers) {
+  selMonth=i; renderCalendar();
+  const panel=document.getElementById('cal-detail');
+  document.getElementById('cal-detail-title').textContent=mn+' Payments';
+  const rows=document.getElementById('cal-detail-rows');
+  if(!payers.length) { rows.innerHTML='<div style="color:var(--text3);font-size:13px;padding:0.5rem 0">No payments this month</div>'; }
+  else { rows.innerHTML=payers.map(h=>`<div class="cal-detail-row"><span class="ticker-chip">${h.ticker}</span><span style="color:var(--text2);font-size:13px">${h.company||''}</span><span class="div-amount">${f2(divForMonth(h,i))}</span></div>`).join(''); }
+  panel.classList.add('open');
+}
+
+// ── EXPENSES ─────────────────────────────────────
+const expColors=['#00B386','#33C49F','#66D5B8','#1D9E75','#0F6E56','#4DB89A','#80CBAD'];
+let expChart=null;
+function renderExpenses() {
+  const cats=Object.keys(D.expenses);
+  document.getElementById('exp-rows').innerHTML=cats.map((c,i)=>`<div class="exp-row"><div class="exp-dot" style="background:${expColors[i%expColors.length]}"></div><div class="exp-name">${c}</div><input class="exp-input" type="number" value="${D.expenses[c]}" oninput="updateExp('${c}',this.value)"></div>`).join('');
+  refreshExpTotal();
+  renderExpChart();
+}
+function updateExp(cat,val) { D.expenses[cat]=parseFloat(val)||0; save(); refreshExpTotal(); renderExpChart(); updateSidebar(); }
+function refreshExpTotal() { document.getElementById('exp-total').textContent=f0(totalExp()); }
+function renderExpChart() {
+  kc('exp');
+  const cats=Object.keys(D.expenses), vals=cats.map(c=>D.expenses[c]);
+  charts.exp=new Chart(document.getElementById('c-exp'),{type:'doughnut',data:{labels:cats,datasets:[{data:vals,backgroundColor:expColors,borderColor:'#fff',borderWidth:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#5A6473',font:{family:'Inter',size:11},padding:10}}}}});
+}
+
+// ── MY PATH ──────────────────────────────────────
+function initPath() {
+  const p=D.path;
+  document.getElementById('p-income').value=p.income||1000;
+  document.getElementById('p-freedom').value=p.freedom||totalExp()||4000;
+  document.getElementById('p-yield').value=p.yield||4;
+  document.getElementById('p-growth').value=p.growth||5;
+  document.getElementById('p-invest').value=p.investPct||80;
+  if(p.date) document.getElementById('p-date').value=p.date;
+  else { const d=new Date(); d.setFullYear(d.getFullYear()+5); document.getElementById('p-date').value=d.toISOString().slice(0,7); }
+}
+function calcPath() {
+  const income=parseFloat(document.getElementById('p-income').value)||0;
+  const freedom=parseFloat(document.getElementById('p-freedom').value)||0;
+  const yp=parseFloat(document.getElementById('p-yield').value)/100||0.04;
+  const gp=parseFloat(document.getElementById('p-growth').value)/100||0.05;
+  const ip=parseFloat(document.getElementById('p-invest').value)/100||0.8;
+  const ds=document.getElementById('p-date').value;
+
+  document.getElementById('p-growth-v').textContent=fp(parseFloat(document.getElementById('p-growth').value)||0);
+  document.getElementById('p-invest-v').textContent=Math.round(parseFloat(document.getElementById('p-invest').value))+'%';
+
+  D.path={income,freedom,yield:yp*100,growth:gp*100,investPct:ip*100,date:ds}; save();
+
+  const mIncome=income*4.33, mExp=totalExp()||freedom, surplus=Math.max(0,mIncome-mExp), wInvest=(surplus*ip)/4.33;
+
+  const mkRow=(label,val,color='')=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:0.45rem 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text2);font-weight:500">${label}</span><span style="font-weight:700;color:${color||'var(--text)'}">${val}</span></div>`;
+
+  document.getElementById('p-income-breakdown').innerHTML=
+    mkRow('Weekly take-home',f0(income))+mkRow('Weekly expenses equiv.',f0(mExp/4.33))+mkRow('Weekly surplus',f0(surplus/4.33),'var(--teal)')+mkRow(`Invest this week (${Math.round(ip*100)}%)`,f0(wInvest),'var(--teal)');
+
+  const capNeeded=(freedom*12)/yp, capHave=portVal(), capGap=Math.max(0,capNeeded-capHave);
+  document.getElementById('p-capital-breakdown').innerHTML=
+    mkRow('Capital needed',f0(capNeeded))+mkRow('Capital you have',f0(capHave),'var(--teal)')+mkRow('Gap to close',f0(capGap),'var(--amber)');
+
+  const now=new Date();
+  const tgt=ds?new Date(ds+'-01'):new Date(now.getFullYear()+5,now.getMonth(),1);
+  const msLeft=Math.max(0,tgt-now), dLeft=Math.floor(msLeft/86400000);
+  document.getElementById('cd-y').textContent=Math.floor(dLeft/365);
+  document.getElementById('cd-m').textContent=Math.floor((dLeft%365)/30);
+  document.getElementById('cd-d').textContent=dLeft%30;
+
+  const mToGoal=Math.max(1,Math.round(msLeft/(30.44*86400000)));
+  const r=(yp+gp)/12;
+  const pv=portVal();
+  const gf=Math.pow(1+r,mToGoal);
+  const reqMonthly=r>0?(capNeeded-pv*gf)/((gf-1)/r):capGap/mToGoal;
+  const reqWeekly=Math.max(0,reqMonthly/4.33);
+  const onTrack=wInvest>=reqWeekly;
+
+  const reqEl=document.getElementById('p-required');
+  reqEl.textContent=f0(reqWeekly)+'/wk';
+  reqEl.className='required-num '+(onTrack?'good':'bad');
+  document.getElementById('p-required-tag').innerHTML=onTrack
+    ?`<span class="status-tag status-green">On track — surplus ${f0(wInvest-reqWeekly)}/wk</span>`
+    :`<span class="status-tag status-red">Shortfall — need ${f0(reqWeekly-wInvest)} more/wk</span>`;
+
+  document.getElementById('p-action-card').innerHTML=
+    `<div class="action-row"><span class="action-label">Weekly take-home</span><span class="action-value">${f0(income)}</span></div>`+
+    `<div class="action-row"><span class="action-label">Weekly expenses</span><span class="action-value">${f0(mExp/4.33)}</span></div>`+
+    `<div class="action-row"><span class="action-label">Invest this week</span><span class="action-value" style="color:var(--teal-dark)">${f0(wInvest)}</span></div>`+
+    `<div class="action-row"><span class="action-label">Freedom progress</span><span class="action-value">${Math.round(freePct())}%</span></div>`+
+    `<div class="action-row"><span class="action-label">On track</span><span class="${onTrack?'on-track-yes':'on-track-no'}">${onTrack?'YES ✓':'NO ✗'}</span></div>`+
+    `<div class="action-row"><span class="action-label">Days to freedom</span><span class="action-value">${dLeft.toLocaleString()}</span></div>`;
+
+  // chart
+  const labels=[], portLine=[], divLine=[];
+  let pval=pv, mContrib=wInvest*4.33, mr=(yp+gp)/12;
+  for(let m=0;m<=mToGoal;m++){
+    if(m%3===0){labels.push(new Date(now.getFullYear(),now.getMonth()+m,1).toLocaleDateString('en-US',{year:'numeric',month:'short'}));portLine.push(Math.round(pval));divLine.push(Math.round(pval*yp/12));}
+    pval=pval*(1+mr)+mContrib+pval*yp/12;
+  }
+  kc('path');
+  charts.path=new Chart(document.getElementById('c-path'),{type:'line',data:{labels,datasets:[{label:'Portfolio Value',data:portLine,borderColor:'#00B386',backgroundColor:'rgba(0,179,134,0.08)',fill:true,tension:0.4,pointRadius:0,borderWidth:2,yAxisID:'y'},{label:'Monthly Dividends',data:divLine,borderColor:'#F59F00',backgroundColor:'transparent',tension:0.4,pointRadius:0,borderWidth:2,borderDash:[4,3],yAxisID:'y2'}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{color:'#5A6473',font:{family:'Inter',size:11},padding:16}}},scales:{x:{ticks:{...ticks,maxTicksLimit:8},grid:gridLine},y:{position:'left',ticks:{...ticks,callback:v=>'$'+Math.round(v/1000)+'k'},grid:gridLine},y2:{position:'right',ticks:{color:'#F59F00',font:{family:'Inter',size:10},callback:v=>'$'+Math.round(v)},grid:{display:false}}}}});
+}
+
+// ── SIMULATOR ────────────────────────────────────
+function calcSim() {
+  const contrib=parseInt(document.getElementById('s-contrib').value)||500;
+  const start=parseInt(document.getElementById('s-start').value)||0;
+  const yld=parseFloat(document.getElementById('s-yield').value)/100||0.04;
+  const growth=parseFloat(document.getElementById('s-growth').value)/100||0.05;
+  const years=parseInt(document.getElementById('s-years').value)||20;
+  const target=totalExp()||4000;
+
+  document.getElementById('s-contrib-v').textContent='$'+contrib.toLocaleString();
+  document.getElementById('s-start-v').textContent='$'+start.toLocaleString();
+  document.getElementById('s-yield-v').textContent=fp(yld*100);
+  document.getElementById('s-growth-v').textContent=fp(growth*100);
+  document.getElementById('s-years-v').textContent=years+' yrs';
+
+  const mr=(yld+growth)/12;
+  let pval=start, totDiv=0, totContrib=0;
+  const labels=[], portLine=[], divLine=[];
+  let freeYear=null;
+
+  for(let y=0;y<=years;y++){
+    const md=pval*yld/12;
+    labels.push(new Date().getFullYear()+y);
+    portLine.push(Math.round(pval));
+    divLine.push(Math.round(md));
+    if(!freeYear&&md>=target) freeYear=new Date().getFullYear()+y;
+    for(let m=0;m<12;m++){const d=pval*yld/12;totDiv+=d;pval=pval*(1+mr)+contrib+d;totContrib+=contrib;}
+  }
+
+  document.getElementById('s-end-val').textContent=f0(pval);
+  document.getElementById('s-end-div').textContent=f0(pval*yld/12);
+  document.getElementById('s-total-div').textContent=f0(totDiv);
+  document.getElementById('s-total-contrib').textContent=f0(totContrib);
+  document.getElementById('s-free-yr').textContent=freeYear||'>'+(new Date().getFullYear()+years);
+
+  kc('sim');
+  charts.sim=new Chart(document.getElementById('c-sim'),{type:'line',data:{labels,datasets:[{label:'Portfolio Value',data:portLine,borderColor:'#00B386',backgroundColor:'rgba(0,179,134,0.1)',fill:true,tension:0.4,pointRadius:0,borderWidth:2,yAxisID:'y'},{label:'Monthly Dividends',data:divLine,borderColor:'#F59F00',backgroundColor:'transparent',tension:0.4,pointRadius:0,borderWidth:2,borderDash:[4,3],yAxisID:'y2'}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{color:'#5A6473',font:{family:'Inter',size:11},padding:16}}},scales:{x:{ticks,grid:gridLine},y:{position:'left',ticks:{...ticks,callback:v=>'$'+Math.round(v/1000)+'k'},grid:gridLine},y2:{position:'right',ticks:{color:'#F59F00',font:{family:'Inter',size:10},callback:v=>'$'+Math.round(v)},grid:{display:false}}}}});
+}
+
+// ── IMPORT / EXPORT ──────────────────────────────
+function exportData() { const b=new Blob([JSON.stringify(D,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='dividend-freedom-tracker.json';a.click(); }
+function importData(e) { const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{D=JSON.parse(ev.target.result);save();renderHoldings();updateSidebar();alert('Imported!');}catch{alert('Invalid JSON');}};r.readAsText(f); }
+
+// ── INIT ─────────────────────────────────────────
+renderDashboard();
+renderExpenses();
+updateSidebar();
+</script>
+</body>
+</html>
